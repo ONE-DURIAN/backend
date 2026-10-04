@@ -22,6 +22,9 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Protect against OOM attacks by limiting request body to 1MB
+	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
+
 	var req domain.RegisterRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		response.Error(w, http.StatusBadRequest, "Invalid request body")
@@ -42,6 +45,9 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 		response.Error(w, http.StatusMethodNotAllowed, "Method not allowed")
 		return
 	}
+
+	// Protect against OOM attacks by limiting request body to 1MB
+	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
 
 	var req domain.LoginRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -64,6 +70,9 @@ func (h *Handler) RefreshToken(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Protect against OOM attacks by limiting request body to 1MB
+	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
+
 	var req domain.RefreshTokenRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		response.Error(w, http.StatusBadRequest, "Invalid request body")
@@ -84,6 +93,9 @@ func (h *Handler) Logout(w http.ResponseWriter, r *http.Request) {
 		response.Error(w, http.StatusMethodNotAllowed, "Method not allowed")
 		return
 	}
+
+	// Protect against OOM attacks by limiting request body to 1MB
+	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
 
 	var req domain.LogoutRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {

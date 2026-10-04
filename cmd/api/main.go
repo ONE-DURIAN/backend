@@ -83,15 +83,25 @@ func main() {
 		})
 	})
 
-	// Healthcheck Route
+	// Liveness Probe (Instant response for Docker/Cloudflare ping without DB load)
+	mux.HandleFunc("/livez", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"status":"alive"}`))
+	})
+
+	// Readiness / Deep Healthcheck Route
 	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
 		handleHealthCheck(w, r, db, rdb, s3, cfg)
 	})
 
-	// Auth Routes
+	// Auth Routes (Protected by Redis Rate Limiting)
 	if authHandler != nil {
-		mux.HandleFunc("/api/v1/auth/register", authHandler.Register)
-		mux.HandleFunc("/api/v1/auth/login", authHandler.Login)
+		registerLimiter := auth.RateLimitMiddleware(rdb, 5, 1*time.Minute, "register")
+		loginLimiter := auth.RateLimitMiddleware(rdb, 10, 1*time.Minute, "login")
+
+		mux.Handle("/api/v1/auth/register", registerLimiter(http.HandlerFunc(authHandler.Register)))
+		mux.Handle("/api/v1/auth/login", loginLimiter(http.HandlerFunc(authHandler.Login)))
 		mux.HandleFunc("/api/v1/auth/refresh", authHandler.RefreshToken)
 		mux.HandleFunc("/api/v1/auth/logout", authHandler.Logout)
 

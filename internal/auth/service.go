@@ -44,17 +44,16 @@ func (s *authService) Register(ctx context.Context, req domain.RegisterRequest) 
 	if req.PhoneNumber == "" && req.Email == "" {
 		return nil, errors.New("either phone number or email must be provided")
 	}
-	if len(req.Password) < 6 {
-		return nil, errors.New("password must be at least 6 characters long")
+	if len(req.Password) < 8 {
+		return nil, errors.New("password must be at least 8 characters long")
 	}
 	if req.FullName == "" {
 		return nil, errors.New("full name is required")
 	}
 
-	// Default role to farmer
-	if req.Role == "" {
-		req.Role = domain.RoleFarmer
-	}
+	// Security: Public registration is strictly restricted to 'farmer' role
+	// Auditor and Admin roles can only be granted via internal administrative operations
+	role := domain.RoleFarmer
 
 	// Check if already exists
 	if req.PhoneNumber != "" {
@@ -77,7 +76,7 @@ func (s *authService) Register(ctx context.Context, req domain.RegisterRequest) 
 	user := domain.User{
 		PasswordHash: string(hashedPassword),
 		FullName:     req.FullName,
-		Role:         req.Role,
+		Role:         role,
 	}
 	if req.PhoneNumber != "" {
 		user.PhoneNumber = &req.PhoneNumber
