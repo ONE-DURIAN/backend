@@ -16,6 +16,17 @@ func NewHandler(svc Service) *Handler {
 	return &Handler{svc: svc}
 }
 
+// Register godoc
+// @Summary สมัครสมาชิกชาวสวน (Farmer Register)
+// @Description สมัครสมาชิกใหม่ กำหนดสิทธิ์เริ่มต้นเป็น farmer (จำกัด 5 ครั้ง/นาที ต่อ 1 IP)
+// @Tags Authentication
+// @Accept json
+// @Produce json
+// @Param request body domain.RegisterRequest true "ข้อมูลการสมัครสมาชิก"
+// @Success 201 {object} response.APIResponse{data=domain.AuthResponse}
+// @Failure 400 {object} response.APIResponse
+// @Failure 429 {object} response.APIResponse
+// @Router /api/v1/auth/register [post]
 func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		response.Error(w, http.StatusMethodNotAllowed, "Method not allowed")
@@ -40,6 +51,17 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 	response.Success(w, http.StatusCreated, "User registered successfully", res)
 }
 
+// Login godoc
+// @Summary เข้าสู่ระบบ (Login)
+// @Description เข้าสู่ระบบด้วยเบอร์โทรศัพท์หรืออีเมล (จำกัด 10 ครั้ง/นาที ต่อ 1 IP)
+// @Tags Authentication
+// @Accept json
+// @Produce json
+// @Param request body domain.LoginRequest true "ข้อมูลเข้าระบบ"
+// @Success 200 {object} response.APIResponse{data=domain.AuthResponse}
+// @Failure 401 {object} response.APIResponse
+// @Failure 429 {object} response.APIResponse
+// @Router /api/v1/auth/login [post]
 func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		response.Error(w, http.StatusMethodNotAllowed, "Method not allowed")
@@ -64,6 +86,16 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 	response.Success(w, http.StatusOK, "Login successful", res)
 }
 
+// RefreshToken godoc
+// @Summary ขอ Access Token ใหม่ (Refresh Token)
+// @Description ส่ง Refresh Token เพื่อขอรับ Access Token ชุดใหม่
+// @Tags Authentication
+// @Accept json
+// @Produce json
+// @Param request body domain.RefreshTokenRequest true "Refresh Token"
+// @Success 200 {object} response.APIResponse{data=domain.TokenPair}
+// @Failure 401 {object} response.APIResponse
+// @Router /api/v1/auth/refresh [post]
 func (h *Handler) RefreshToken(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		response.Error(w, http.StatusMethodNotAllowed, "Method not allowed")
@@ -88,6 +120,16 @@ func (h *Handler) RefreshToken(w http.ResponseWriter, r *http.Request) {
 	response.Success(w, http.StatusOK, "Token refreshed successfully", tokens)
 }
 
+// Logout godoc
+// @Summary ออกจากระบบ (Logout)
+// @Description ลบ Refresh Token ออกจาก Redis
+// @Tags Authentication
+// @Accept json
+// @Produce json
+// @Param request body domain.LogoutRequest true "Refresh Token"
+// @Success 200 {object} response.APIResponse
+// @Failure 400 {object} response.APIResponse
+// @Router /api/v1/auth/logout [post]
 func (h *Handler) Logout(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		response.Error(w, http.StatusMethodNotAllowed, "Method not allowed")
@@ -111,6 +153,15 @@ func (h *Handler) Logout(w http.ResponseWriter, r *http.Request) {
 	response.Success(w, http.StatusOK, "Logged out successfully", nil)
 }
 
+// GetMe godoc
+// @Summary ดูข้อมูลโปรไฟล์ตัวเอง (Get Profile)
+// @Description ดึงข้อมูลโปรไฟล์ผู้ใช้ปัจจุบันจาก JWT Access Token
+// @Tags Authentication
+// @Security BearerAuth
+// @Produce json
+// @Success 200 {object} response.APIResponse{data=domain.User}
+// @Failure 401 {object} response.APIResponse
+// @Router /api/v1/auth/me [get]
 func (h *Handler) GetMe(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		response.Error(w, http.StatusMethodNotAllowed, "Method not allowed")

@@ -1,0 +1,266 @@
+basePath: /
+definitions:
+  domain.AuthResponse:
+    properties:
+      tokens:
+        $ref: '#/definitions/domain.TokenPair'
+      user:
+        $ref: '#/definitions/domain.User'
+    type: object
+  domain.LoginRequest:
+    properties:
+      identifier:
+        description: Phone number or email
+        type: string
+      password:
+        type: string
+    type: object
+  domain.LogoutRequest:
+    properties:
+      refresh_token:
+        type: string
+    type: object
+  domain.RefreshTokenRequest:
+    properties:
+      refresh_token:
+        type: string
+    type: object
+  domain.RegisterRequest:
+    properties:
+      email:
+        type: string
+      full_name:
+        type: string
+      password:
+        type: string
+      phone_number:
+        type: string
+      role:
+        allOf:
+        - $ref: '#/definitions/domain.Role'
+        description: Default to farmer if empty
+    type: object
+  domain.Role:
+    enum:
+    - farmer
+    - auditor
+    - admin
+    type: string
+    x-enum-varnames:
+    - RoleFarmer
+    - RoleAuditor
+    - RoleAdmin
+  domain.TokenPair:
+    properties:
+      access_token:
+        type: string
+      expires_in:
+        description: Seconds
+        type: integer
+      refresh_token:
+        type: string
+      token_type:
+        type: string
+    type: object
+  domain.User:
+    properties:
+      avatar_url:
+        type: string
+      created_at:
+        type: string
+      email:
+        type: string
+      full_name:
+        type: string
+      id:
+        type: string
+      is_active:
+        type: boolean
+      national_id:
+        type: string
+      phone_number:
+        type: string
+      role:
+        $ref: '#/definitions/domain.Role'
+      updated_at:
+        type: string
+    type: object
+  response.APIResponse:
+    properties:
+      data: {}
+      error:
+        type: string
+      message:
+        type: string
+      success:
+        type: boolean
+    type: object
+host: api.au-nongtota.com
+info:
+  contact: {}
+  description: |-
+    API Gateway สำหรับแพลตฟอร์มชุมชนชาวสวน และระบบตรวจสอบย้อนกลับมาตรฐาน GAP (มกษ. 9001)
+    รองรับระบบ Authentication, แปลงสวน, และสมุดบันทึกการพ่นยา
+  title: Farm Community & GAP Digital Certificate API
+  version: 0.2.0
+paths:
+  /api/v1/auth/login:
+    post:
+      consumes:
+      - application/json
+      description: เข้าสู่ระบบด้วยเบอร์โทรศัพท์หรืออีเมล (จำกัด 10 ครั้ง/นาที ต่อ
+        1 IP)
+      parameters:
+      - description: ข้อมูลเข้าระบบ
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/domain.LoginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/domain.AuthResponse'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.APIResponse'
+        "429":
+          description: Too Many Requests
+          schema:
+            $ref: '#/definitions/response.APIResponse'
+      summary: เข้าสู่ระบบ (Login)
+      tags:
+      - Authentication
+  /api/v1/auth/logout:
+    post:
+      consumes:
+      - application/json
+      description: ลบ Refresh Token ออกจาก Redis
+      parameters:
+      - description: Refresh Token
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/domain.LogoutRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.APIResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.APIResponse'
+      summary: ออกจากระบบ (Logout)
+      tags:
+      - Authentication
+  /api/v1/auth/me:
+    get:
+      description: ดึงข้อมูลโปรไฟล์ผู้ใช้ปัจจุบันจาก JWT Access Token
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/domain.User'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: ดูข้อมูลโปรไฟล์ตัวเอง (Get Profile)
+      tags:
+      - Authentication
+  /api/v1/auth/refresh:
+    post:
+      consumes:
+      - application/json
+      description: ส่ง Refresh Token เพื่อขอรับ Access Token ชุดใหม่
+      parameters:
+      - description: Refresh Token
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/domain.RefreshTokenRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/domain.TokenPair'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.APIResponse'
+      summary: ขอ Access Token ใหม่ (Refresh Token)
+      tags:
+      - Authentication
+  /api/v1/auth/register:
+    post:
+      consumes:
+      - application/json
+      description: สมัครสมาชิกใหม่ กำหนดสิทธิ์เริ่มต้นเป็น farmer (จำกัด 5 ครั้ง/นาที
+        ต่อ 1 IP)
+      parameters:
+      - description: ข้อมูลการสมัครสมาชิก
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/domain.RegisterRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/domain.AuthResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.APIResponse'
+        "429":
+          description: Too Many Requests
+          schema:
+            $ref: '#/definitions/response.APIResponse'
+      summary: สมัครสมาชิกชาวสวน (Farmer Register)
+      tags:
+      - Authentication
+securityDefinitions:
+  BearerAuth:
+    description: กรอก "Bearer <JWT_TOKEN>" (มีเว้นวรรค 1 ช่อง)
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"

@@ -20,6 +20,16 @@ import (
 	"community-backend/pkg/s3client"
 )
 
+// @title Farm Community & GAP Digital Certificate API
+// @version 0.2.0
+// @description API Gateway สำหรับแพลตฟอร์มชุมชนชาวสวน และระบบตรวจสอบย้อนกลับมาตรฐาน GAP (มกษ. 9001)
+// @description รองรับระบบ Authentication, แปลงสวน, และสมุดบันทึกการพ่นยา
+// @host api.au-nongtota.com
+// @BasePath /
+// @securityDefinitions.apikey BearerAuth
+// @in header
+// @name Authorization
+// @description กรอก "Bearer <JWT_TOKEN>" (มีเว้นวรรค 1 ช่อง)
 func main() {
 	cfg := config.LoadConfig()
 
