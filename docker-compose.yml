@@ -1,8 +1,11 @@
 services:
   api:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    # ดึง Image ล่าสุดที่บิลด์เสร็จจาก GitHub Actions (GHCR)
+    image: ghcr.io/one-durian/backend:latest
+    # หากต้องการบิลด์บนเครื่อง Local สามารถเปิดคอมเมนต์ 3 บรรทัดนี้ได้
+    # build:
+    #   context: .
+    #   dockerfile: Dockerfile
     container_name: community_api
     restart: unless-stopped
     env_file:
@@ -37,6 +40,21 @@ services:
       - TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN}
     depends_on:
       - api
+    networks:
+      - app_net
+
+  # Watchtower: ตรวจจับ Image ใหม่บน GHCR อัตโนมัติ แล้ว Pull และรีสตาร์ทให้ทันที
+  watchtower:
+    image: containrrr/watchtower:latest
+    container_name: community_watchtower
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /root/.docker/config.json:/config.json:ro
+    environment:
+      - WATCHTOWER_CLEANUP=true
+      - WATCHTOWER_POLL_INTERVAL=60
+    command: --cleanup community_api
     networks:
       - app_net
 
