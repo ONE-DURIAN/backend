@@ -6,22 +6,6 @@
 [![CI/CD](https://img.shields.io/badge/GitHub%20Actions-Automated%20CI%2FCD-2088FF?style=flat&logo=githubactions)](https://github.com/ONE-DURIAN/backend/actions)
 [![API Docs](https://img.shields.io/badge/API%20Docs-Scalar%20%26%20Swagger-059669?style=flat&logo=swagger)](https://api.au-nongtota.com/docs)
 [![License](https://img.shields.io/badge/License-Proprietary-red.svg)](LICENSE)
-
----
-
-## 📖 สารบัญ (Table of Contents)
-- [ภาพรวมสถาปัตยกรรมระบบ (Architecture Overview)](#-ภาพรวมสถาปัตยกรรมระบบ-architecture-overview)
-- [โครงสร้างเครือข่าย Proxmox VE (Network Topology)](#-โครงสร้างเครือข่าย-proxmox-ve-network-topology)
-- [เทคโนโลยีหลักที่ใช้ (Tech Stack)](#-เทคโนโลยีหลักที่ใช้-tech-stack)
-- [จุดเด่นด้านความปลอดภัยและประสิทธิภาพ (Security & Performance)](#-จุดเด่นด้านความปลอดภัยและประสิทธิภาพ-security--performance)
-- [โครงสร้างโค้ด (Clean Architecture Project Structure)](#-โครงสร้างโค้ด-clean-architecture-project-structure)
-- [เส้นทาง API (API Endpoints & Documentation)](#-เส้นทาง-api-api-endpoints--documentation)
-- [การตั้งค่า Environment Variables](#-การตั้งค่า-environment-variables)
-- [คู่มือการติดตั้งและรันระบบ (Setup & Deployment)](#-คู่มือการติดตั้งและรันระบบ-setup--deployment)
-  - [1. รันบนเครื่อง Local Development](#1-รันบนเครื่อง-local-development)
-  - [2. รันด้วย Docker Compose](#2-รันด้วย-docker-compose)
-  - [3. ระบบ CI/CD & Auto Deploy ด้วย Watchtower](#3-ระบบ-cicd--auto-deploy-ด้วย-watchtower)
-
 ---
 
 ## 🏛️ ภาพรวมสถาปัตยกรรมระบบ (Architecture Overview)
