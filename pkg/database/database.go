@@ -29,14 +29,24 @@ func ConnectPostgres(cfg config.Config) (*DB, error) {
 	db.SetConnMaxLifetime(15 * time.Minute)
 	db.SetConnMaxIdleTime(5 * time.Minute)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
+	// Retry connecting up to 5 times (total ~10s) to handle database cold-starts
+	var pingErr error
+	for attempt := 1; attempt <= 5; attempt++ {
+		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		pingErr = db.PingContext(ctx)
+		cancel()
 
-	if err := db.PingContext(ctx); err != nil {
-		return nil, fmt.Errorf("failed to ping database: %w", err)
+		if pingErr == nil {
+			return &DB{db}, nil
+		}
+
+		if attempt < 5 {
+			time.Sleep(2 * time.Second)
+		}
 	}
 
-	return &DB{db}, nil
+	_ = db.Close()
+	return nil, fmt.Errorf("failed to connect to postgres after 5 attempts: %w", pingErr)
 }
 
 func (db *DB) HealthCheck(ctx context.Context) (float64, error) {

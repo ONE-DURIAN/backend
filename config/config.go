@@ -1,6 +1,8 @@
 package config
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"log"
 	"os"
 	"strconv"
@@ -68,12 +70,21 @@ func LoadConfig() Config {
 		JWTRefreshExpirationDays: refreshDays,
 	}
 
+	// Security Check: Validate and enforce strong JWT_SECRET
+	if len(cfg.JWTSecret) < 32 {
+		if cfg.JWTSecret == "" {
+			randomKey := make([]byte, 32)
+			_, _ = rand.Read(randomKey)
+			cfg.JWTSecret = hex.EncodeToString(randomKey)
+			log.Println("⚠️ Security Warning: JWT_SECRET not found in environment! Generated ephemeral 256-bit secret for this runtime session.")
+		} else {
+			log.Println("⚠️ Security Warning: JWT_SECRET is shorter than 32 characters (recommended >= 256 bits for production)")
+		}
+	}
+
 	// แจ้งเตือนถ้าขาด Environment Variables ที่จำเป็น
 	if cfg.DBHost == "" || cfg.DBName == "" {
 		log.Println("⚠️ Warning: DB_HOST or DB_NAME is not set in environment")
-	}
-	if cfg.JWTSecret == "" {
-		log.Println("⚠️ Warning: JWT_SECRET is not set in environment")
 	}
 
 	return cfg

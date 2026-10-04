@@ -3,6 +3,7 @@ package auth
 import (
 	"context"
 	"fmt"
+	"net"
 	"net/http"
 	"strings"
 	"time"
@@ -90,6 +91,25 @@ func GetUserRole(ctx context.Context) domain.Role {
 	return ""
 }
 
+// getClientIP securely resolves client IP with Cloudflare Tunnel & port stripping
+func getClientIP(r *http.Request) string {
+	// 1. Trust CF-Connecting-IP first when routed through Cloudflare Tunnel
+	if cfIP := strings.TrimSpace(r.Header.Get("CF-Connecting-IP")); cfIP != "" {
+		return cfIP
+	}
+
+	// 2. Strip port from RemoteAddr
+	host, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err == nil && host != "" {
+		return host
+	}
+
+	if r.RemoteAddr != "" {
+		return r.RemoteAddr
+	}
+	return "unknown"
+}
+
 // RateLimitMiddleware limits the number of requests per client IP within a rolling time window using Redis
 func RateLimitMiddleware(rdb *redisclient.Client, limit int, window time.Duration, keyPrefix string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
@@ -99,15 +119,7 @@ func RateLimitMiddleware(rdb *redisclient.Client, limit int, window time.Duratio
 				return
 			}
 
-			// Cloudflare Tunnel passes the actual client IP in CF-Connecting-IP
-			clientIP := strings.TrimSpace(r.Header.Get("CF-Connecting-IP"))
-			if clientIP == "" {
-				clientIP = strings.TrimSpace(strings.Split(r.Header.Get("X-Forwarded-For"), ",")[0])
-			}
-			if clientIP == "" {
-				clientIP = r.RemoteAddr
-			}
-
+			clientIP := getClientIP(r)
 			key := fmt.Sprintf("ratelimit:%s:%s", keyPrefix, clientIP)
 			ctx, cancel := context.WithTimeout(r.Context(), 1*time.Second)
 			defer cancel()
@@ -119,9 +131,14 @@ func RateLimitMiddleware(rdb *redisclient.Client, limit int, window time.Duratio
 				return
 			}
 
-			// Set expiration on first hit
+			// Ensure expiration is set (prevent permanent lockout on crash/failure)
 			if count == 1 {
 				_ = rdb.Expire(ctx, key, window).Err()
+			} else {
+				// Safety check: if TTL is missing (-1), reinstate expiration
+				if ttl, err := rdb.TTL(ctx, key).Result(); err == nil && ttl < 0 {
+					_ = rdb.Expire(ctx, key, window).Err()
+				}
 			}
 
 			if count > int64(limit) {

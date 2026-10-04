@@ -15,6 +15,7 @@ import (
 	"community-backend/internal/auth"
 	"community-backend/pkg/apidocs"
 	"community-backend/pkg/database"
+	"community-backend/pkg/middleware"
 	"community-backend/pkg/redisclient"
 	"community-backend/pkg/response"
 	"community-backend/pkg/s3client"
@@ -122,11 +123,21 @@ func main() {
 		// Protected Route: /api/v1/auth/me
 		protectedMe := auth.AuthMiddleware(authSvc)(http.HandlerFunc(authHandler.GetMe))
 		mux.Handle("/api/v1/auth/me", protectedMe)
+	} else {
+		mux.HandleFunc("/api/v1/auth/", func(w http.ResponseWriter, r *http.Request) {
+			response.Error(w, http.StatusServiceUnavailable, "Authentication service is temporarily unavailable (Database or Cache connecting)")
+		})
 	}
+
+	// Middleware Pipeline: Recovery (catches panics) -> Logger (access logs) -> CORS
+	var handler http.Handler = mux
+	handler = middleware.CORS(handler)
+	handler = middleware.Logger(handler)
+	handler = middleware.Recovery(handler)
 
 	server := &http.Server{
 		Addr:         ":" + cfg.AppPort,
-		Handler:      corsMiddleware(mux),
+		Handler:      handler,
 		ReadTimeout:  15 * time.Second,
 		WriteTimeout: 15 * time.Second,
 		IdleTimeout:  60 * time.Second,
@@ -236,17 +247,3 @@ func handleHealthCheck(w http.ResponseWriter, r *http.Request, db *database.DB, 
 	})
 }
 
-func corsMiddleware(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS, PATCH")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With")
-
-		if r.Method == http.MethodOptions {
-			w.WriteHeader(http.StatusOK)
-			return
-		}
-
-		next.ServeHTTP(w, r)
-	})
-}

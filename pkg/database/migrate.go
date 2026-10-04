@@ -19,8 +19,8 @@ func (db *DB) AutoMigrate() error {
 		// 2. Users Table
 		`CREATE TABLE IF NOT EXISTS users (
 			id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-			phone_number VARCHAR(20) UNIQUE,
-			email VARCHAR(255) UNIQUE,
+			phone_number VARCHAR(20),
+			email VARCHAR(255),
 			password_hash VARCHAR(255) NOT NULL,
 			full_name VARCHAR(100) NOT NULL,
 			avatar_url TEXT,
@@ -32,9 +32,13 @@ func (db *DB) AutoMigrate() error {
 			deleted_at TIMESTAMPTZ
 		);`,
 
-		// 3. Indexes for fast lookup
-		`CREATE INDEX IF NOT EXISTS idx_users_phone ON users(phone_number) WHERE deleted_at IS NULL;`,
-		`CREATE INDEX IF NOT EXISTS idx_users_email ON users(email) WHERE deleted_at IS NULL;`,
+		// 3. Drop legacy inline constraints if upgrading from earlier version
+		`ALTER TABLE users DROP CONSTRAINT IF EXISTS users_phone_number_key;`,
+		`ALTER TABLE users DROP CONSTRAINT IF EXISTS users_email_key;`,
+
+		// 4. Partial Unique Indexes (Enforces uniqueness ONLY for active accounts, allowing re-registration after soft delete)
+		`CREATE UNIQUE INDEX IF NOT EXISTS idx_users_phone_unique ON users(phone_number) WHERE deleted_at IS NULL;`,
+		`CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email_unique ON users(email) WHERE deleted_at IS NULL;`,
 	}
 
 	for i, q := range queries {
