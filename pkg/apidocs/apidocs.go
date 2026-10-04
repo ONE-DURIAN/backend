@@ -22,14 +22,25 @@ func RegisterRoutes(mux *http.ServeMux) {
 		_, _ = w.Write([]byte(doc))
 	})
 
-	// 2. Modern Scalar API Documentation Portal (Available at /docs)
-	mux.HandleFunc("/docs", func(w http.ResponseWriter, r *http.Request) {
+	// 2. Modern Scalar API Documentation Portal (Available at /docs and /docs/)
+	scalarHandler := func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(scalarHTML))
+	}
+	mux.HandleFunc("/docs", scalarHandler)
+	mux.HandleFunc("/docs/", func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/docs/" {
+			http.Redirect(w, r, "/docs", http.StatusMovedPermanently)
+			return
+		}
+		http.NotFound(w, r)
 	})
 
-	// 3. Official Swagger UI (Available at /swagger/)
+	// 3. Official Swagger UI (Available at /swagger/ and /swagger)
+	mux.HandleFunc("/swagger", func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "/swagger/index.html", http.StatusMovedPermanently)
+	})
 	mux.HandleFunc("/swagger/", httpSwagger.WrapHandler)
 }
 
