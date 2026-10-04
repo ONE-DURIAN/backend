@@ -1,0 +1,348 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Farm Community & GAP Digital Certificate API",
+    "description": "API สำหรับแพลตฟอร์มชุมชนชาวสวน และระบบตรวจสอบย้อนกลับมาตรฐาน GAP (มกษ. 9001)\n\nรองรับระบบ Authentication, สมุดบันทึกแปลงสวน, การคำนวณวันเว้นการพ่นยาก่อนเก็บเกี่ยว (PHI), และการออกใบรับรองดิจิทัล",
+    "version": "0.2.0",
+    "contact": {
+      "name": "Au Nongtota Farm Dev Team"
+    }
+  },
+  "servers": [
+    {
+      "url": "https://api.au-nongtota.com",
+      "description": "Production (Cloudflare Tunnel)"
+    },
+    {
+      "url": "http://192.168.1.203:8080",
+      "description": "Local LXC Gateway (LAN)"
+    },
+    {
+      "url": "http://localhost:8080",
+      "description": "Local Development"
+    }
+  ],
+  "tags": [
+    {
+      "name": "Health",
+      "description": "การตรวจสอบสถานะของระบบและบริการภายนอก"
+    },
+    {
+      "name": "Authentication",
+      "description": "การสมัครสมาชิก, เข้าสู่ระบบ, ต่ออายุ Token และจัดการโปรไฟล์"
+    }
+  ],
+  "paths": {
+    "/livez": {
+      "get": {
+        "tags": ["Health"],
+        "summary": "Liveness Probe",
+        "description": "เช็คสถานะการทำงานของ Web Server (ตอบกลับทันที ไม่ต่อ Database)",
+        "responses": {
+          "200": {
+            "description": "Server is alive",
+            "content": {
+              "application/json": {
+                "example": { "status": "alive" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/healthz": {
+      "get": {
+        "tags": ["Health"],
+        "summary": "Readiness Health Check",
+        "description": "ตรวจสอบสถานะการเชื่อมต่อจริงของ PostgreSQL, Redis, และ Garage S3 พร้อมวัดค่า Latency",
+        "responses": {
+          "200": {
+            "description": "All services are healthy",
+            "content": {
+              "application/json": {
+                "example": {
+                  "overall_status": "healthy",
+                  "timestamp": "2026-10-04T18:00:00+07:00",
+                  "environment": "production-local",
+                  "services": {
+                    "postgresql": { "status": "connected", "latency_ms": 6.18, "message": "Connected to database 'farm_community'" },
+                    "redis": { "status": "connected", "latency_ms": 1.57, "message": "Received 'PONG' from Redis" },
+                    "garage_s3": { "status": "connected", "latency_ms": 1.07, "message": "Bucket 'community-media' exists: true" }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "One or more services are degraded/unreachable"
+          }
+        }
+      }
+    },
+    "/api/v1/auth/register": {
+      "post": {
+        "tags": ["Authentication"],
+        "summary": "สมัครสมาชิกชาวสวน (Farmer Register)",
+        "description": "สมัครสมาชิกใหม่ กำหนดสิทธิ์เริ่มต้นเป็น 'farmer' อัตโนมัติ (จำกัด 5 ครั้ง/นาที ต่อ 1 IP)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterRequest"
+              },
+              "example": {
+                "phone_number": "0812345678",
+                "email": "farmer.somchai@example.com",
+                "password": "Password1234!",
+                "full_name": "สมชาย ทำสวนทุเรียน"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "สมัครสมาชิกสำเร็จ",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthSuccessResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "ข้อมูลไม่ถูกต้อง หรือเบอร์โทร/อีเมลนี้ลงทะเบียนไว้แล้ว"
+          },
+          "429": {
+            "description": "คำขอเกินโควตา (Rate Limit Exceeded)"
+          }
+        }
+      }
+    },
+    "/api/v1/auth/login": {
+      "post": {
+        "tags": ["Authentication"],
+        "summary": "เข้าสู่ระบบ (Login)",
+        "description": "เข้าสู่ระบบด้วยเบอร์โทรศัพท์หรืออีเมลคู่กับรหัสผ่าน (จำกัด 10 ครั้ง/นาที ต่อ 1 IP)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequest"
+              },
+              "example": {
+                "identifier": "0812345678",
+                "password": "Password1234!"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "เข้าสู่ระบบสำเร็จ",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthSuccessResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "รหัสผ่านไม่ถูกต้อง หรือไม่พบบัญชีผู้ใช้"
+          },
+          "429": {
+            "description": "คำขอเกินโควตา (Rate Limit Exceeded)"
+          }
+        }
+      }
+    },
+    "/api/v1/auth/me": {
+      "get": {
+        "tags": ["Authentication"],
+        "summary": "ดูข้อมูลโปรไฟล์ตัวเอง (Get Profile)",
+        "description": "ดึงข้อมูลส่วนตัวของผู้ใช้ที่ล็อกอินอยู่ ต้องแนบ JWT Access Token ผ่าน Authorization Header",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ดึงข้อมูลโปรไฟล์สำเร็จ",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfileSuccessResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Token ไม่ถูกต้อง หรือหมดอายุแล้ว"
+          }
+        }
+      }
+    },
+    "/api/v1/auth/refresh": {
+      "post": {
+        "tags": ["Authentication"],
+        "summary": "ขอ Access Token ใหม่ (Refresh Token)",
+        "description": "ส่ง Refresh Token เพื่อขอรับ Access Token และ Refresh Token ชุดใหม่ (Token Rotation)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RefreshTokenRequest"
+              },
+              "example": {
+                "refresh_token": "a4f89b2c1e7d3a5f6e80b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "ออก Token ชุดใหม่สำเร็จ",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenRefreshSuccessResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Refresh Token ไม่ถูกต้องหรือหมดอายุ"
+          }
+        }
+      }
+    },
+    "/api/v1/auth/logout": {
+      "post": {
+        "tags": ["Authentication"],
+        "summary": "ออกจากระบบ (Logout)",
+        "description": "ลบ Refresh Token ออกจาก Redis ทันที ทำให้ไม่สามารถนำไปขอ Access Token ใหม่ได้อีก",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LogoutRequest"
+              },
+              "example": {
+                "refresh_token": "a4f89b2c1e7d3a5f6e80b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "ออกจากระบบสำเร็จ"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "BearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "description": "กรอก JWT Access Token โดยไม่ต้องพิมพ์คำว่า Bearer นำหน้า"
+      }
+    },
+    "schemas": {
+      "RegisterRequest": {
+        "type": "object",
+        "required": ["full_name", "password"],
+        "properties": {
+          "phone_number": { "type": "string", "example": "0812345678" },
+          "email": { "type": "string", "format": "email", "example": "farmer.somchai@example.com" },
+          "password": { "type": "string", "format": "password", "minLength": 8, "example": "Password1234!" },
+          "full_name": { "type": "string", "example": "สมชาย ทำสวนทุเรียน" }
+        }
+      },
+      "LoginRequest": {
+        "type": "object",
+        "required": ["identifier", "password"],
+        "properties": {
+          "identifier": { "type": "string", "description": "เบอร์โทรศัพท์หรืออีเมล", "example": "0812345678" },
+          "password": { "type": "string", "format": "password", "example": "Password1234!" }
+        }
+      },
+      "RefreshTokenRequest": {
+        "type": "object",
+        "required": ["refresh_token"],
+        "properties": {
+          "refresh_token": { "type": "string" }
+        }
+      },
+      "LogoutRequest": {
+        "type": "object",
+        "required": ["refresh_token"],
+        "properties": {
+          "refresh_token": { "type": "string" }
+        }
+      },
+      "User": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid", "example": "01923e1f-7b8c-7f32-8411-9a2c1f9d2e1b" },
+          "phone_number": { "type": "string", "nullable": true, "example": "0812345678" },
+          "email": { "type": "string", "nullable": true, "example": "farmer.somchai@example.com" },
+          "full_name": { "type": "string", "example": "สมชาย ทำสวนทุเรียน" },
+          "avatar_url": { "type": "string", "nullable": true, "example": null },
+          "role": { "type": "string", "enum": ["farmer", "auditor", "admin"], "example": "farmer" },
+          "national_id": { "type": "string", "nullable": true, "example": null },
+          "is_active": { "type": "boolean", "example": true },
+          "created_at": { "type": "string", "format": "date-time" },
+          "updated_at": { "type": "string", "format": "date-time" }
+        }
+      },
+      "TokenPair": {
+        "type": "object",
+        "properties": {
+          "access_token": { "type": "string" },
+          "refresh_token": { "type": "string" },
+          "token_type": { "type": "string", "example": "Bearer" },
+          "expires_in": { "type": "integer", "example": 7200 }
+        }
+      },
+      "AuthSuccessResponse": {
+        "type": "object",
+        "properties": {
+          "success": { "type": "boolean", "example": true },
+          "message": { "type": "string" },
+          "data": {
+            "type": "object",
+            "properties": {
+              "user": { "$ref": "#/components/schemas/User" },
+              "tokens": { "$ref": "#/components/schemas/TokenPair" }
+            }
+          }
+        }
+      },
+      "ProfileSuccessResponse": {
+        "type": "object",
+        "properties": {
+          "success": { "type": "boolean", "example": true },
+          "message": { "type": "string" },
+          "data": { "$ref": "#/components/schemas/User" }
+        }
+      },
+      "TokenRefreshSuccessResponse": {
+        "type": "object",
+        "properties": {
+          "success": { "type": "boolean", "example": true },
+          "message": { "type": "string" },
+          "data": { "$ref": "#/components/schemas/TokenPair" }
+        }
+      }
+    }
+  }
+}

@@ -13,6 +13,7 @@ import (
 
 	"community-backend/config"
 	"community-backend/internal/auth"
+	"community-backend/pkg/apidocs"
 	"community-backend/pkg/database"
 	"community-backend/pkg/redisclient"
 	"community-backend/pkg/response"
@@ -94,6 +95,9 @@ func main() {
 	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
 		handleHealthCheck(w, r, db, rdb, s3, cfg)
 	})
+
+	// API Documentation Routes (/docs, /docs/swagger, /docs/openapi.json)
+	apidocs.RegisterRoutes(mux)
 
 	// Auth Routes (Protected by Redis Rate Limiting)
 	if authHandler != nil {
