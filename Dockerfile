@@ -9,7 +9,7 @@ RUN go mod download
 
 # ก็อปปี้โค้ดและคอมไพล์ไบนารี
 COPY . .
-RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o main .
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o main ./cmd/api
 
 # Run Stage
 FROM alpine:3.19
